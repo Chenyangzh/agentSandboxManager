@@ -30,7 +30,7 @@ def check_local_docker() -> bool:
 def check_kubernetes() -> bool:
     try:
         _ = KubernetesClient()
-        return False
+        return True
     except RuntimeError as e:
         print(f"[Kubernetes Check] {e}")
         return False

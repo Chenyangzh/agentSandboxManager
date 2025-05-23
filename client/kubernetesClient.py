@@ -13,15 +13,12 @@ class KubernetesClient(SandboxClient):
             self.namespace = namespace
             if core_api is not None:
                 self.core_api = core_api
-                print("[Config] Using externally provided CoreV1Api")
             else:
                 # 加载配置
                 if os.getenv("KUBERNETES_SERVICE_HOST"):
                     config.load_incluster_config()
-                    print("[Config] Loaded in-cluster config")
                 else:
                     config.load_kube_config()
-                    print("[Config] Loaded local kube config")
 
                 # 初始化 API 客户端
                 self.core_api = client.CoreV1Api()
