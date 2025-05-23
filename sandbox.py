@@ -34,8 +34,8 @@ class sandboxManager(object):
         self.client, self.env_type = get_client()
 
     def create_sandbox(self, image: str, name: str, command: str = None) -> Sandbox:
-        if not name.startswith("sandbox_"):
-            name = "sandbox_" + name
+        if not name.startswith("sandbox-"):
+            name = "sandbox-" + name
         if command:
             obj = self.client.create(image, name, command)
         else:
@@ -44,8 +44,8 @@ class sandboxManager(object):
 
     def destroy_sandbox(self, sandbox: Sandbox):
         name = sandbox.name
-        if not name.startswith("sandbox_"):
-            name = "sandbox_" + name
+        if not name.startswith("sandbox-"):
+            name = "sandbox-" + name
         self.client.delete(sandbox.name)
 
 
