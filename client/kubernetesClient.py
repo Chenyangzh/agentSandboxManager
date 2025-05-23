@@ -1,3 +1,5 @@
+import os
+
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -8,7 +10,12 @@ from client.sandboxClient import SandboxClient
 class KubernetesClient(SandboxClient):
     def __init__(self, client: Optional[client.ApiClient] = None, namespace: str = "default"):
         try:
-            config.load_incluster_config()
+            if os.getenv("KUBERNETES_SERVICE_HOST"):
+                config.load_incluster_config()
+                print("[Config] Loaded in-cluster config")
+            else:
+                config.load_kube_config()
+                print("[Config] Loaded local kube config")
             self.namespace = namespace
             self.core_api = client.CoreV1Api()
         except Exception as e:

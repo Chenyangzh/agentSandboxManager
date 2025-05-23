@@ -5,4 +5,7 @@
 ### manager: 沙箱管理器- 环境检查、启动、删除
 
 ## 注： 使用localDocker环境时，如果sandbox执行在容器内，需要启动容器挂载 /var/run/docker.sock:/var/run/docker.sock
-## 注： 使用kubernets环境时，需要设置 spec: serviceAccountName: default
+## 注： 使用kubernets环境时，需要设置:
+    1. spec: serviceAccountName: default
+    2.  export KUBERNETES_SERVICE_HOST=10.30.0.1
+        export KUBERNETES_SERVICE_PORT=443
