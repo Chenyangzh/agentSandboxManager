@@ -8,7 +8,7 @@ from client.sandboxClient import SandboxClient
 class KubernetesClient(SandboxClient):
     def __init__(self, client: Optional[client.ApiClient] = None, namespace: str = "default"):
         try:
-            config.load_kube_config()  # 或使用 config.load_incluster_config() 适用于容器内
+            config.load_incluster_config()
             self.namespace = namespace
             self.core_api = client.CoreV1Api()
         except Exception as e:
