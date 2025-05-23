@@ -9,7 +9,7 @@ def get_client() -> SandboxClient:
     # check kubernetes
     if check_kubernetes():
         print("[Kubernetes Check] Kubernetes sandbox environment ready.")
-        return KubernetesClient(), "kubernetes_pod"
+        return KubernetesClient(), "kubernetes"
     
     # check local docker
     elif check_local_docker():

@@ -26,7 +26,7 @@ class LocalContainerSandbox(Sandbox):
 
 sandbox_mapping = {
     "local_container": LocalContainerSandbox,
-    "kubernetes_pod": None,
+    "kubernetes": None,
 }
 
 class sandboxManager(object):
