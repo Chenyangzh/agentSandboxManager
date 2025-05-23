@@ -8,16 +8,23 @@ from client.sandboxClient import SandboxClient
 
 
 class KubernetesClient(SandboxClient):
-    def __init__(self, client: Optional[client.ApiClient] = None, namespace: str = "default"):
+    def __init__(self, core_api: Optional[client.ApiClient] = None, namespace: str = "default"):
         try:
-            if os.getenv("KUBERNETES_SERVICE_HOST"):
-                config.load_incluster_config()
-                print("[Config] Loaded in-cluster config")
-            else:
-                config.load_kube_config()
-                print("[Config] Loaded local kube config")
             self.namespace = namespace
-            self.core_api = client.CoreV1Api()
+            if core_api is not None:
+                self.core_api = core_api
+                print("[Config] Using externally provided CoreV1Api")
+            else:
+                # 加载配置
+                if os.getenv("KUBERNETES_SERVICE_HOST"):
+                    config.load_incluster_config()
+                    print("[Config] Loaded in-cluster config")
+                else:
+                    config.load_kube_config()
+                    print("[Config] Loaded local kube config")
+
+                # 初始化 API 客户端
+                self.core_api = client.CoreV1Api()
         except Exception as e:
             raise RuntimeError(f"[KubernetesClient] Failed to initialize client: {e}")
     
