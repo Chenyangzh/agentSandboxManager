@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from client import LocalDockerClient, get_client
+from client import LocalDockerClient, KubernetesClient, get_client
 
 
 class Sandbox(ABC):
@@ -23,10 +23,20 @@ class LocalContainerSandbox(Sandbox):
             self.obj, 
             command
         )
+    
+class KubernetesSandbox(Sandbox):
+    def __init__(self, obj: Any, name: str):
+        super().__init__(obj, name)
+    
+    def exec_command(self, command):
+        return KubernetesClient.exec_command(
+            self.obj, 
+            command
+        )
 
 sandbox_mapping = {
     "local_container": LocalContainerSandbox,
-    "kubernetes": None,
+    "kubernetes": KubernetesSandbox,
 }
 
 class sandboxManager(object):
@@ -52,7 +62,7 @@ class sandboxManager(object):
 if __name__ == "__main__":
     manager = sandboxManager()
     # 创建沙箱
-    sandbox = manager.create_sandbox(image="python:3.12", name="test-sandbox", command="sleep infinity")
+    sandbox = manager.create_sandbox(image="harbor.wenge.com/algorithm/python:3.12", name="test-sandbox", command="sleep infinity")
     # 执行命令
     output = sandbox.exec_command("echo hello world")
     print(output)
