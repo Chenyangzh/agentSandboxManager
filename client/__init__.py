@@ -4,27 +4,28 @@ from client.localDockerClient import LocalDockerClient
 
 def get_client() -> SandboxClient:
     """
-    检查运行环境，是否为container、kubernets、或使用http server。
+    Check world environment and return client.
+    Kubernetes and local docker are supported for now.
     """
     # check kubernetes
     if check_kubernetes():
-        print("[Kubernetes Check] Kubernetes sandbox environment ready.")
+        print("Kubernetes sandbox environment ready.")
         return KubernetesClient(), "kubernetes"
     
     # check local docker
     elif check_local_docker():
-        print("[Docker Check] Local Docker sandbox environment ready.")
+        print("Local Docker sandbox environment ready.")
         return LocalDockerClient(), "local_container"
     # check http server
     else:
-        raise  RuntimeError("[Error] No sandbox environment available.")
+        raise RuntimeError("Error: No sandbox environment available.")
 
 def check_local_docker() -> bool:
     try:
         _ = LocalDockerClient()
         return True
     except RuntimeError as e:
-        print(f"[Docker Check] {e}")
+        print(f"Error: {e}")
         return False
     
 def check_kubernetes() -> bool:
@@ -32,7 +33,7 @@ def check_kubernetes() -> bool:
         _ = KubernetesClient()
         return True
     except RuntimeError as e:
-        print(f"[Kubernetes Check] {e}")
+        print(f"Error: {e}")
         return False
     
 def check_http_server() -> bool:

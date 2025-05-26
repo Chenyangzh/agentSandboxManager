@@ -6,7 +6,6 @@ from kubernetes import client, config
 from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
-from kubernetes.client.models.v1_pod import V1Pod
 
 from typing import Union, List, Dict, Tuple, Optional
 from client.sandboxClient import SandboxClient
@@ -28,7 +27,7 @@ class KubernetesClient(SandboxClient):
                 # 初始化 API 客户端
                 self.core_api = CoreV1Api()
         except Exception as e:
-            raise RuntimeError(f"[KubernetesClient] Failed to initialize client: {e} or donot have KUBERNETES_SERVICE_HOST")
+            raise RuntimeError(f"KubernetesClient Failed to initialize client: {e} or donot have KUBERNETES_SERVICE_HOST")
     
     def create(self, image: str, name: str, command: str = "sleep infinity", timeout: int = 180) -> Dict:
         pod_created = False
@@ -43,7 +42,7 @@ class KubernetesClient(SandboxClient):
             )
             self.core_api.create_namespaced_pod(namespace=self.namespace, body=pod_spec)
             pod_created = True
-            print(f"[KubernetesClient] Pod '{name}' created. Waiting for Ready...")
+            print(f"KubernetesClient Pod '{name}' created. Waiting for Ready...")
 
             for _ in range(timeout):
                 pod = self.core_api.read_namespaced_pod(name=name, namespace=self.namespace)
@@ -51,17 +50,17 @@ class KubernetesClient(SandboxClient):
                     conditions = pod.status.conditions or []
                     for cond in conditions:
                         if cond.type == "Ready" and cond.status == "True":
-                            print(f"[KubernetesClient] Pod '{name}' is Ready.")
+                            print(f"KubernetesClient Pod '{name}' is Ready.")
                             return (pod, self.core_api)
                 time.sleep(1)
-            raise TimeoutError(f"[KubernetesClient] Pod '{name}' not Ready after {timeout} seconds.")
+            raise TimeoutError(f"KubernetesClient Pod '{name}' not Ready after {timeout} seconds.")
 
         except TimeoutError as te:
             print(str(te))
             if pod_created:
                 self.delete(name)
         except ApiException as e:
-            print(f"[Error] Creating pod failed: {e}")
+            print(f"Error Creating pod failed: {e}")
             if pod_created:
                 self.delete(name)
 
@@ -72,9 +71,9 @@ class KubernetesClient(SandboxClient):
                 namespace=self.namespace,
                 body=client.V1DeleteOptions(grace_period_seconds=0)
             )
-            print(f"[KubernetesClient] Pod '{name}' deleted.")
+            print(f"KubernetesClient Pod '{name}' deleted.")
         except ApiException as e:
-            print(f"[Error] Deleting pod failed: {e}")
+            print(f"Error Deleting pod failed: {e}")
 
     def get_status(self, name: str):
         """
@@ -83,7 +82,7 @@ class KubernetesClient(SandboxClient):
             pod = self.core_api.read_namespaced_pod(name=name, namespace=self.namespace)
             return pod.status.phase
         except ApiException as e:
-            print(f"[Error] Get pod status failed: {e}")
+            print(f"Error Get pod status failed: {e}")
             return "Unknown"
     
     @staticmethod

@@ -1,3 +1,5 @@
+
+import time
 import docker
 
 from docker.models.containers import Container
@@ -9,30 +11,44 @@ from client.sandboxClient import SandboxClient
 class LocalDockerClient(SandboxClient):
     def __init__(self, client: Optional[docker.DockerClient] = None):
         try:
-            self.client = client or docker.from_env()
+            self.client = client or docker.from_env()   # input client or get from env
             self.client.ping()
         except docker.errors.DockerException as e:
             raise RuntimeError(
                 f"Unable to connect to Docker daemon. Please ensure Docker is running. Error: {e}"
             )
 
-    def create(self, image_name: str, container_name: str, command: str = "sleep infinity") -> Container:
+    def create(self, image_name: str, container_name: str, command: str = "sleep infinity", timeout: int = 180) -> Container:
         try:
-            existing = self.client.containers.get(container_name)
-            raise RuntimeError(f"Container '{container_name}' already exists.")
-        except docker.errors.NotFound:
-            pass  # Safe to create
-        
-        container = self.client.containers.create(
-            image=image_name,
-            name=container_name,
-            detach=True,
-            stdin_open=True,
-            tty=True,
-            command=command
-        )
-        container.start()
-        return container
+            try:
+                existing = self.client.containers.get(container_name)
+                raise RuntimeError(f"Container '{container_name}' already exists.")
+            except docker.errors.NotFound:
+                pass  # Safe to create
+            
+            container = self.client.containers.create(
+                image=image_name,
+                name=container_name,
+                detach=True,
+                stdin_open=True,
+                tty=True,
+                command=command
+            )
+            container.start()
+
+            # check container ready
+            for _ in range(timeout):
+                container.reload()
+                if container.status == 'running':
+                    print("Container is running")
+                    break
+                time.sleep(1)
+            else:
+                raise RuntimeError("Container creating timeout")
+            return container
+        except Exception as e:
+            raise RuntimeError(f"Create container failed: {str(e)}")
+
 
     def delete(self, container_name: str) -> None:
         try:
