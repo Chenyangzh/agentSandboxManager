@@ -1,6 +1,6 @@
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from client import LocalDockerClient, KubernetesClient, get_client
 
@@ -12,6 +12,10 @@ class Sandbox(ABC):
 
     @abstractmethod
     def exec_command(self, command: str) -> str:
+        pass
+
+    @abstractmethod
+    def exec_command(self, command: str, workdir: Optional[str] = None) -> str:
         pass
 
 class LocalContainerSandbox(Sandbox):
@@ -50,13 +54,16 @@ class sandboxManager(object):
             obj = self.client.create(image, name, command)
         else:
             obj = self.client.create(image, name)
-        return sandbox_mapping[self.env_type](obj=obj, name=name)
+        sandbox_class = sandbox_mapping.get(self.env_type)
+        if not sandbox_class:
+            raise ValueError(f"Unsupported env_type: {self.env_type}")
+        return sandbox_class(obj=obj, name=name)
 
     def destroy_sandbox(self, sandbox: Sandbox):
         name = sandbox.name
         if not name.startswith("sandbox-"):
             name = "sandbox-" + name
-        self.client.delete(sandbox.name)
+        self.client.delete(name)
 
 
 if __name__ == "__main__":

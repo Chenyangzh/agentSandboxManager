@@ -13,8 +13,11 @@ from client.sandboxClient import SandboxClient
 
 class KubernetesClient(SandboxClient):
     def __init__(self, core_api: Optional[client.ApiClient] = None, namespace: str = "default"):
+        """
+        Init a kubernetes client.
+        """
+        self.namespace = namespace
         try:
-            self.namespace = namespace
             if core_api is not None:
                 self.core_api = core_api
             else:
@@ -30,41 +33,41 @@ class KubernetesClient(SandboxClient):
             raise RuntimeError(f"KubernetesClient Failed to initialize client: {e} or donot have KUBERNETES_SERVICE_HOST")
     
     def create(self, image: str, name: str, command: str = "sleep infinity", timeout: int = 180) -> Dict:
-        pod_created = False
-        try:
-            command_list = shlex.split(command)
-            pod_spec = client.V1Pod(
-                metadata=client.V1ObjectMeta(name=name),
-                spec=client.V1PodSpec(
-                    containers=[client.V1Container(name=name, image=image, command=command_list)],
-                    restart_policy="Never"
-                )
+        """
+        Create a kubernetes pod within default 180s.
+        """
+        command_list = shlex.split(command)
+        pod_spec = client.V1Pod(
+            metadata=client.V1ObjectMeta(name=name),
+            spec=client.V1PodSpec(
+                containers=[client.V1Container(name=name, image=image, command=command_list)],
+                restart_policy="Never"
             )
+        )
+        try:
             self.core_api.create_namespaced_pod(namespace=self.namespace, body=pod_spec)
-            pod_created = True
-            print(f"KubernetesClient Pod '{name}' created. Waiting for Ready...")
+            print(f"Pod '{name}' created. Waiting for Ready...")
 
             for _ in range(timeout):
                 pod = self.core_api.read_namespaced_pod(name=name, namespace=self.namespace)
                 if pod.status.phase == "Running":
-                    conditions = pod.status.conditions or []
-                    for cond in conditions:
+                    for cond in (pod.status.conditions or []):
                         if cond.type == "Ready" and cond.status == "True":
-                            print(f"KubernetesClient Pod '{name}' is Ready.")
-                            return (pod, self.core_api)
+                            print(f"Pod '{name}' is Ready.")
+                            return pod, self.core_api
                 time.sleep(1)
-            raise TimeoutError(f"KubernetesClient Pod '{name}' not Ready after {timeout} seconds.")
 
-        except TimeoutError as te:
-            print(str(te))
-            if pod_created:
-                self.delete(name)
-        except ApiException as e:
-            print(f"Error Creating pod failed: {e}")
-            if pod_created:
-                self.delete(name)
+            raise TimeoutError(f"Pod '{name}' not Ready after {timeout} seconds.")
+
+        except (TimeoutError, ApiException) as e:
+            print(f"Error while creating pod '{name}': {e}")
+            self.delete(name=name)
+            raise RuntimeError(f"Failed to create and initialize pod '{name}': {e}")
 
     def delete(self, name: str) -> None:
+        """
+        Delete a pod by name.
+        """
         try:
             self.core_api.delete_namespaced_pod(
                 name=name,
@@ -88,26 +91,30 @@ class KubernetesClient(SandboxClient):
     @staticmethod
     def exec_command(spod: Tuple, command: Union[str, List[str]], workdir: Optional[str] = None) -> str:
         """
+        Exec command in a pod
         """
         pod, api = spod
-        # 如果 command 是字符串，转为列表形式
-        if isinstance(command, str):
-            command = ["/bin/sh", "-c", command]
+        try:
+            if isinstance(command, str):
+                command = ["/bin/bash", "-c", command]
 
-        # 如果设置了工作目录，用 `cd` 包装原始命令
-        if workdir:
-            joined_cmd = ' '.join(command)  # 把列表变成 shell 命令
-            command = ["/bin/sh", "-c", f"cd {workdir} && {joined_cmd}"]
+            if workdir:
+                # 安全拼接命令
+                inner_cmd = " ".join(shlex.quote(arg) for arg in command)
+                command = ["/bin/bash", "-c", f"cd {shlex.quote(workdir)} && {inner_cmd}"]
 
-        resp = stream(
-            api.connect_get_namespaced_pod_exec,
-            name=pod.metadata.name,
-            namespace=pod.metadata.namespace,
-            command=command,
-            stderr=True,
-            stdin=False,
-            stdout=True,
-            tty=False,
-        )
+            resp = stream(
+                api.connect_get_namespaced_pod_exec,
+                name=pod.metadata.name,
+                namespace=pod.metadata.namespace,
+                command=command,
+                stderr=True,
+                stdin=False,
+                stdout=True,
+                tty=False,
+            )
 
-        return resp
+            return resp.strip()
+
+        except ApiException as e:
+            raise RuntimeError(f"Failed to exec command in pod '{pod.metadata.name}': {e}")
