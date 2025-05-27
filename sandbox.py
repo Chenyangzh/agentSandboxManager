@@ -55,8 +55,8 @@ class sandboxManager(object):
                        image: str, 
                        name: str, 
                        command: str, 
-                       sandbox_port: int, 
-                       mount_path: str) -> Sandbox:
+                       sandbox_port: int = None, 
+                       mount_path: str = None) -> Sandbox:
         if not name.startswith("sandbox-"):
             name = "sandbox-" + name
         
