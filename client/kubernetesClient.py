@@ -32,19 +32,105 @@ class KubernetesClient(SandboxClient):
         except Exception as e:
             raise RuntimeError(f"KubernetesClient Failed to initialize client: {e} or donot have KUBERNETES_SERVICE_HOST")
     
-    def create(self, image: str, name: str, command: str = "sleep infinity", timeout: int = 180) -> Dict:
+    def _get_pod_spec(self,
+                      image,
+                      name,
+                      command,
+                      container_port: int = None,
+                      volume_type: str = None,
+                      container_dir: str = None,
+                      volume_name: str = None,
+                      host_dir: str = None,) -> client.V1Pod:
         """
-        Create a kubernetes pod within default 180s.
+            get pod specific config
         """
+        # command
+        if not command:
+            command = "sleep infinity"
         command_list = shlex.split(command)
+
+        # ports
+        container_ports = []
+        if container_port:
+            container_ports.append(client.V1ContainerPort(container_port=container_port))
+
+        # volume mounts
+        volume_mounts = []
+        volumes = []
+        if container_dir and volume_type:
+            volume_mounts.append(client.V1VolumeMount(
+                mount_path=container_dir,
+                name="mount-volume"
+            ))
+
+            if volume_type == "hostPath":
+                if not host_dir:
+                    raise ValueError("host_dir must be provided for hostPath volume.")
+                volumes.append(client.V1Volume(
+                    name="mount-volume",
+                    host_path=client.V1HostPathVolumeSource(path=host_dir)
+                ))
+
+            elif volume_type == "emptyDir":
+                volumes.append(client.V1Volume(
+                    name="mount-volume",
+                    empty_dir=client.V1EmptyDirVolumeSource()
+                ))
+
+            elif volume_type == "pvc":
+                if not volume_name:
+                    raise ValueError("volume_name (PVC name) must be provided for pvc volume.")
+                volumes.append(client.V1Volume(
+                    name="mount-volume",
+                    persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=volume_name)
+                ))
+
+            else:
+                raise ValueError(f"Unsupported volume_type: {volume_type}")
+        
+        working_dir = container_dir if container_dir else None
+
+        # container and pod
+        container = client.V1Container(
+            name=name,
+            image=image,
+            command=command_list,
+            ports=container_ports,
+            volume_mounts=volume_mounts,
+            working_dir=working_dir,
+        )
         pod_spec = client.V1Pod(
             metadata=client.V1ObjectMeta(name=name),
             spec=client.V1PodSpec(
-                containers=[client.V1Container(name=name, image=image, command=command_list)],
+                containers=[container],
+                volumes=volumes,
                 restart_policy="Never"
             )
         )
+
+        return pod_spec
+
+    def create(self,
+               image: str, 
+               name: str, 
+               command: str = "sleep infinity", 
+               container_port: int = None, 
+               host_dir: str = None, 
+               container_dir: str = None, 
+               timeout: int = 180, ) -> Dict:
+        """
+        Create a kubernetes pod within default 180s.
+        """
         try:
+            pod_spec = self._get_pod_spec(
+                image = image,
+                name = name,
+                command = command,
+                container_port = container_port,
+                volume_type = "hostPath",
+                host_dir = host_dir,
+                container_dir = container_dir,
+            )
             self.core_api.create_namespaced_pod(namespace=self.namespace, body=pod_spec)
             print(f"Pod '{name}' created. Waiting for Ready...")
 

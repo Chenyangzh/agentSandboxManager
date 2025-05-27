@@ -18,6 +18,7 @@ class Sandbox(ABC):
     def exec_command(self, command: str, workdir: Optional[str] = None) -> str:
         pass
 
+
 class LocalContainerSandbox(Sandbox):
     def __init__(self, obj: Any, name: str):
         super().__init__(obj, name)
@@ -27,7 +28,8 @@ class LocalContainerSandbox(Sandbox):
             self.obj, 
             command
         )
-    
+
+
 class KubernetesSandbox(Sandbox):
     def __init__(self, obj: Any, name: str):
         super().__init__(obj, name)
@@ -38,26 +40,47 @@ class KubernetesSandbox(Sandbox):
             command
         )
 
+
 sandbox_mapping = {
     "local_container": LocalContainerSandbox,
     "kubernetes": KubernetesSandbox,
 }
 
+
 class sandboxManager(object):
     def __init__(self, ):
         self.client, self.env_type = get_client()
 
-    def create_sandbox(self, image: str, name: str, command: str = None) -> Sandbox:
+    def create_sandbox(self, 
+                       image: str, 
+                       name: str, 
+                       command: str, 
+                       sandbox_port: int, 
+                       mount_path: str) -> Sandbox:
         if not name.startswith("sandbox-"):
             name = "sandbox-" + name
-        if command:
-            obj = self.client.create(image, name, command)
+        
+        if self.env_type == "local_container":
+            # Docker: host_port -> sandbox_port, container_port = 8080
+            obj = self.client.create(image, name, command, 
+                                     host_port = sandbox_port, 
+                                     container_port = 8080, 
+                                     host_dir = mount_path, 
+                                     container_dir = "/workspace")
+        elif self.env_type == "kubernetes":
+            # Kubernetes: container_port = sandbox_port
+            obj = self.client.create(image, name, command, 
+                                     container_port = sandbox_port, 
+                                     host_dir = mount_path, 
+                                     container_dir = "/workspace")
         else:
-            obj = self.client.create(image, name)
-        sandbox_class = sandbox_mapping.get(self.env_type)
-        if not sandbox_class:
-            raise ValueError(f"Unsupported env_type: {self.env_type}")
-        return sandbox_class(obj=obj, name=name)
+            raise RuntimeError(f"[Error] Unsupported sandbox environment type: {self.env_type}")
+
+        sandbox_cls = sandbox_mapping.get(self.env_type)
+        if sandbox_cls is None:
+            raise RuntimeError(f"[Error] No sandbox implementation for type: {self.env_type}")
+
+        return sandbox_cls(obj=obj, name=name)
 
     def destroy_sandbox(self, sandbox: Sandbox):
         name = sandbox.name

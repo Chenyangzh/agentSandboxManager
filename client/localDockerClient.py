@@ -21,27 +21,43 @@ class LocalDockerClient(SandboxClient):
                 f"Unable to connect to Docker daemon. Please ensure Docker is running. Error: {e}"
             )
 
-    def create(self, image_name: str, container_name: str, command: str = "sleep infinity", timeout: int = 180) -> Container:
+    def create(self, 
+               image: str, 
+               name: str, 
+               command: str = "sleep infinity", 
+               host_port: int = None,
+               container_port: int = None,
+               host_dir: str = None,
+               container_dir: str = None,
+               timeout: int = 180) -> Container:
         """
         Create container within default 180s.
         """
         # 1. check exist
         try:
-            self.client.containers.get(container_name)
-            raise RuntimeError(f"Container '{container_name}' already exists.")
+            self.client.containers.get(name)
+            raise RuntimeError(f"Container '{name}' already exists.")
         except docker.errors.NotFound:
             pass  # safe to create
- 
+        
+        if not command:
+            command = "sleep infinity"
         container = None
         try:
             # 2. create and start
+            port_bindings = {f"{container_port}/tcp": host_port} if host_port and container_port else None
+            volume_bindings = {host_dir: {'bind': container_dir, 'mode': 'rw'}} if host_dir and container_dir else None
+            working_dir = container_dir if container_dir else None
             container = self.client.containers.create(
-                image=image_name,
-                name=container_name,
+                image=image,
+                name=name,
                 detach=True,
                 stdin_open=True,
                 tty=True,
-                command=command
+                command=command,
+                ports=port_bindings,
+                volumes=volume_bindings,
+                working_dir=working_dir,
             )
             container.start()
 
@@ -49,35 +65,35 @@ class LocalDockerClient(SandboxClient):
             for _ in range(timeout):
                 container.reload()
                 if container.status == 'running':
-                    print(f"Container '{container_name}' is running.")
+                    print(f"Container '{name}' is running.")
                     return container
                 time.sleep(1)
 
-            raise RuntimeError(f"Container '{container_name}' did not reach 'running' state within {timeout} seconds.")
+            raise RuntimeError(f"Container '{name}' did not reach 'running' state within {timeout} seconds.")
 
         except Exception as e:
             # 4. any error clean up
             if container is not None:
                 try:
                     container.remove(force=True)
-                    print(f"Container '{container_name}' removed due to error.")
+                    print(f"Container '{name}' removed due to error.")
                 except Exception as cleanup_err:
-                    print(f"Warning: Failed to clean up container '{container_name}': {cleanup_err}")
-            raise RuntimeError(f"Failed to create container '{container_name}': {e}")
+                    print(f"Warning: Failed to clean up container '{name}': {cleanup_err}")
+            raise RuntimeError(f"Failed to create container '{name}': {e}")
 
 
 
-    def delete(self, container_name: str) -> None:
+    def delete(self, name: str) -> None:
         """
         Delete a running container.
         """
         try:
-            container = self.client.containers.get(container_name)
+            container = self.client.containers.get(name)
             container.remove(force=True)
         except docker.errors.NotFound:
-            raise ValueError(f"Container '{container_name}' not found and cannot be deleted.")
+            raise ValueError(f"Container '{name}' not found and cannot be deleted.")
         except docker.errors.APIError as e:
-            raise RuntimeError(f"Failed to delete container '{container_name}': {str(e)}")
+            raise RuntimeError(f"Failed to delete container '{name}': {str(e)}")
 
     @staticmethod
     def exec_command(container: Container, command: Union[str, List[str]], workdir: Optional[str] = None) -> str:
