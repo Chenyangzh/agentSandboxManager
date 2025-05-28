@@ -92,7 +92,7 @@ class sandboxManager(object):
 if __name__ == "__main__":
     manager = sandboxManager()
     # 创建沙箱
-    sandbox = manager.create_sandbox(image="harbor.wenge.com/algorithm/python:3.12", name="test-sandbox", command="sleep infinity")
+    sandbox = manager.create_sandbox(image="python:3.12", name="test-sandbox", command="sleep infinity")
     
     # 执行命令
     output = sandbox.exec_command("echo hello world")
