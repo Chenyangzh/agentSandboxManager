@@ -3,7 +3,7 @@ import time
 import docker
 
 from docker.models.containers import Container
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Generator
 
 from client.sandboxClient import SandboxClient
 
@@ -66,7 +66,7 @@ class LocalDockerClient(SandboxClient):
                 container.reload()
                 if container.status == 'running':
                     print(f"Container '{name}' is running.")
-                    return container
+                    return self.client, container
                 time.sleep(1)
 
             raise RuntimeError(f"Container '{name}' did not reach 'running' state within {timeout} seconds.")
@@ -80,8 +80,6 @@ class LocalDockerClient(SandboxClient):
                 except Exception as cleanup_err:
                     print(f"Warning: Failed to clean up container '{name}': {cleanup_err}")
             raise RuntimeError(f"Failed to create container '{name}': {e}")
-
-
 
     def delete(self, name: str) -> None:
         """
@@ -125,3 +123,39 @@ class LocalDockerClient(SandboxClient):
             )
 
         return result.strip()
+
+    @staticmethod
+    def exec_command_stream(client: docker.DockerClient,
+                            container: Container,
+                            command: Union[str, List[str]],
+                            workdir: Optional[str] = None) -> Generator:
+        """
+        Execute a command in the specified running container in stream mode.
+        """
+        if isinstance(command, str):
+            command = ["/bin/bash", "-c", command]
+
+        # 创建 exec 实例
+        exec_id = client.api.exec_create(
+            container.id,
+            cmd=command,
+            workdir=workdir,
+            stdout=True,
+            stderr=True,
+            tty=True,  # 必须为 True 否则部分输出不会立即刷新（比如进度条）
+        )["Id"]
+
+        # 以流式方式启动 exec
+        sock = client.api.exec_start(exec_id, stream=True, demux=True)
+
+        # 实时读取输出
+        for stdout_chunk, stderr_chunk in sock:
+            if stdout_chunk:
+                yield {"stdout": stdout_chunk.decode()}
+            if stderr_chunk:
+                yield {"stderr": stderr_chunk.decode()}
+
+        # 获取最终退出码
+        resp = client.api.exec_inspect(exec_id)
+        exit_code = resp["ExitCode"]
+        yield {"exit_code": exit_code}

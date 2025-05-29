@@ -117,7 +117,7 @@ class KubernetesClient(SandboxClient):
                container_port: int = None, 
                host_dir: str = None, 
                container_dir: str = None, 
-               timeout: int = 180, ) -> Dict:
+               timeout: int = 180, ) -> Tuple:
         """
         Create a kubernetes pod within default 180s.
         """
@@ -140,7 +140,7 @@ class KubernetesClient(SandboxClient):
                     for cond in (pod.status.conditions or []):
                         if cond.type == "Ready" and cond.status == "True":
                             print(f"Pod '{name}' is Ready.")
-                            return pod, self.core_api
+                            return self.core_api, pod
                 time.sleep(1)
 
             raise TimeoutError(f"Pod '{name}' not Ready after {timeout} seconds.")
@@ -175,11 +175,10 @@ class KubernetesClient(SandboxClient):
             return "Unknown"
     
     @staticmethod
-    def exec_command(spod: Tuple, command: Union[str, List[str]], workdir: Optional[str] = None) -> str:
+    def exec_command(api: client.ApiClient, pod: client.V1Pod, command: Union[str, List[str]], workdir: Optional[str] = None) -> str:
         """
         Exec command in a pod
         """
-        pod, api = spod
         try:
             if isinstance(command, str):
                 command = ["/bin/bash", "-c", command]
