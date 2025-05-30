@@ -231,7 +231,7 @@ class KubernetesClient(SandboxClient):
                 stderr=True,
                 stdin=False,
                 stdout=True,
-                tty=False,
+                tty=False,      # 设置 tty=True 后，stderr 会合并到 stdout，无法分离读取（K8s API 限制）
                 _preload_content=False
             )
 

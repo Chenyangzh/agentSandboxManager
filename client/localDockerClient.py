@@ -144,7 +144,7 @@ class LocalDockerClient(SandboxClient):
                 workdir=workdir,
                 stdout=True,
                 stderr=True,
-                tty=True,  # 必须为 True 否则部分输出不会立即刷新（比如进度条）
+                tty=False,  # 设置为True可开启伪终端，可能输出ANSI控制字符序列，用于渲染彩色进度条和动态覆盖输出行。
             )["Id"]
 
             # 以流式方式启动 exec
