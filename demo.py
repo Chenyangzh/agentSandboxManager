@@ -1,5 +1,17 @@
+import sys
+
 from sandbox import sandboxManager
 
+
+def generate_as_str(generator):
+    for output in generator:
+        print(output)
+
+def generate_as_terminal(generator):
+    for event in generator:
+        if "stdout" in event:
+            sys.stdout.write(event["stdout"])
+            sys.stdout.flush()
 
 if __name__ == "__main__":
     manager = sandboxManager()
@@ -11,10 +23,10 @@ if __name__ == "__main__":
     print(output)
 
     # 执行命令(asynchronous)
-    generator = sandbox.exec_command_stream("pip install vllm")
-    with output in generator:
-        for line in generator:
-            print(line)
+    generator = sandbox.exec_command_stream("pip install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple")
+    generate_as_terminal(generator)    
 
     # 销毁沙箱
     manager.destroy_sandbox(sandbox)
+
+    print("dbg")

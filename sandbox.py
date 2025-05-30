@@ -14,7 +14,7 @@ class Sandbox(ABC):
         pass
 
     @abstractmethod
-    def exec_command(self, command: str, workdir: Optional[str] = None) -> str:
+    def exec_command_stream(self, command: str, workdir: Optional[str] = None) -> str:
         pass
 
 
@@ -105,4 +105,3 @@ class sandboxManager(object):
         if not name.startswith("sandbox-"):
             name = "sandbox-" + name
         self.client.delete(name)
-
