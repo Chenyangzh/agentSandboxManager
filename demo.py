@@ -8,6 +8,7 @@ def generate_as_str(generator):
         print(output)
 
 def generate_as_terminal(generator):
+    # while ttf=True in client stream setting
     for event in generator:
         if "stdout" in event:
             sys.stdout.write(event["stdout"])
