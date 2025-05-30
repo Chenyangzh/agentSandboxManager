@@ -51,7 +51,7 @@ class KubernetesSandbox(Sandbox):
         )
     
     def exec_command_stream(self, command):
-        return LocalDockerClient.exec_command_stream(
+        return KubernetesClient.exec_command_stream(
             self.cli,
             self.pod, 
             command

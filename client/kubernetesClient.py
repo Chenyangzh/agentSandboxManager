@@ -127,7 +127,7 @@ class KubernetesClient(SandboxClient):
                 name = name,
                 command = command,
                 container_port = container_port,
-                volume_type = "hostPath",
+                volume_type = "hostPath" if host_dir else None,
                 host_dir = host_dir,
                 container_dir = container_dir,
             )
@@ -239,10 +239,10 @@ class KubernetesClient(SandboxClient):
                 resp.update(timeout=1)
                 if resp.peek_stdout():
                     out = resp.read_stdout()
-                    yield ("stdout", out)
+                    yield {"stdout", out}
                 if resp.peek_stderr():
                     err = resp.read_stderr()
-                    yield ("stderr", err)
+                    yield {"stderr", err}
             resp.close()
             exit_code = 0
 
