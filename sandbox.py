@@ -31,7 +31,7 @@ class LocalContainerSandbox(Sandbox):
         )
 
     def exec_command_stream(self, command):
-        yield LocalDockerClient.exec_command_stream(
+        return LocalDockerClient.exec_command_stream(
             self.cli,
             self.container, 
             command
@@ -45,6 +45,13 @@ class KubernetesSandbox(Sandbox):
     
     def exec_command(self, command):
         return KubernetesClient.exec_command(
+            self.cli,
+            self.pod, 
+            command
+        )
+    
+    def exec_command_stream(self, command):
+        return LocalDockerClient.exec_command_stream(
             self.cli,
             self.pod, 
             command
@@ -99,15 +106,3 @@ class sandboxManager(object):
             name = "sandbox-" + name
         self.client.delete(name)
 
-
-if __name__ == "__main__":
-    manager = sandboxManager()
-    # 创建沙箱
-    sandbox = manager.create_sandbox(image="python:3.12", name="test-sandbox", command="sleep infinity")
-    
-    # 执行命令
-    output = sandbox.exec_command("echo hello world")
-    print(output)
-
-    # 销毁沙箱
-    manager.destroy_sandbox(sandbox)

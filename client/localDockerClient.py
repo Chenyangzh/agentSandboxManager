@@ -132,30 +132,42 @@ class LocalDockerClient(SandboxClient):
         """
         Execute a command in the specified running container in stream mode.
         """
-        if isinstance(command, str):
-            command = ["/bin/bash", "-c", command]
+        exec_id = None
+        try:
+            if isinstance(command, str):
+                command = ["/bin/bash", "-c", command]
 
-        # 创建 exec 实例
-        exec_id = client.api.exec_create(
-            container.id,
-            cmd=command,
-            workdir=workdir,
-            stdout=True,
-            stderr=True,
-            tty=True,  # 必须为 True 否则部分输出不会立即刷新（比如进度条）
-        )["Id"]
+            # 创建 exec 实例
+            exec_id = client.api.exec_create(
+                container.id,
+                cmd=command,
+                workdir=workdir,
+                stdout=True,
+                stderr=True,
+                tty=True,  # 必须为 True 否则部分输出不会立即刷新（比如进度条）
+            )["Id"]
 
-        # 以流式方式启动 exec
-        sock = client.api.exec_start(exec_id, stream=True, demux=True)
+            # 以流式方式启动 exec
+            sock = client.api.exec_start(exec_id, stream=True, demux=True)
 
-        # 实时读取输出
-        for stdout_chunk, stderr_chunk in sock:
-            if stdout_chunk:
-                yield {"stdout": stdout_chunk.decode()}
-            if stderr_chunk:
-                yield {"stderr": stderr_chunk.decode()}
+            # 实时读取输出
+            for stdout_chunk, stderr_chunk in sock:
+                if stdout_chunk:
+                    yield {"stdout": stdout_chunk.decode()}
+                if stderr_chunk:
+                    yield {"stderr": stderr_chunk.decode()}
 
-        # 获取最终退出码
-        resp = client.api.exec_inspect(exec_id)
-        exit_code = resp["ExitCode"]
-        yield {"exit_code": exit_code}
+        except Exception as e:
+            yield {"error": f"Exception during exec: {str(e)}"}
+
+        finally:
+            # 获取最终退出码
+            exit_code = -1
+            if exec_id is not None:
+                try:
+                    resp = client.api.exec_inspect(exec_id)
+                    exit_code = resp.get("ExitCode", -1)
+                except Exception as e:
+                    yield {"error": f"Failed to retrieve exit code: {str(e)}"}
+
+            yield {"exit_code": exit_code}

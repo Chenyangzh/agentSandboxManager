@@ -7,7 +7,7 @@ from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
 
-from typing import Union, List, Dict, Tuple, Optional
+from typing import Union, List, Generator, Tuple, Optional
 from client.sandboxClient import SandboxClient
 
 
@@ -203,3 +203,53 @@ class KubernetesClient(SandboxClient):
 
         except ApiException as e:
             raise RuntimeError(f"Failed to exec command in pod '{pod.metadata.name}': {e}")
+        
+
+    def exec_command_stream(api: client.ApiClient, 
+                            pod: client.V1Pod, 
+                            command: Union[str, List[str]], 
+                            workdir: Optional[str] = None) -> Generator:
+        """
+        实时执行命令并流式返回输出（打印到控制台）
+        """
+        exit_code = -1
+
+        if isinstance(command, str):
+            command = ["/bin/bash", "-c", command]
+
+        if workdir:
+            inner_cmd = " ".join(shlex.quote(arg) for arg in command)
+            command = ["/bin/bash", "-c", f"cd {shlex.quote(workdir)} && {inner_cmd}"]
+
+        try:
+            # 打开 WebSocket 连接
+            resp = stream(
+                api.connect_get_namespaced_pod_exec,
+                name=pod.metadata.name,
+                namespace=pod.metadata.namespace,
+                command=command,
+                stderr=True,
+                stdin=False,
+                stdout=True,
+                tty=False,
+                _preload_content=False
+            )
+
+            while resp.is_open():
+                resp.update(timeout=1)
+                if resp.peek_stdout():
+                    out = resp.read_stdout()
+                    yield ("stdout", out)
+                if resp.peek_stderr():
+                    err = resp.read_stderr()
+                    yield ("stderr", err)
+            resp.close()
+            exit_code = 0
+
+        except Exception as e:
+            yield {"error": f"Exception during exec in pod '{pod.metadata.name}': {str(e)}"}
+            # 设置失败退出码
+            exit_code = -1
+
+        finally:
+            yield {"exit_code": exit_code}
