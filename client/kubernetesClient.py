@@ -239,10 +239,10 @@ class KubernetesClient(SandboxClient):
                 resp.update(timeout=1)
                 if resp.peek_stdout():
                     out = resp.read_stdout()
-                    yield {"stdout", out}
+                    yield {"stdout": out}
                 if resp.peek_stderr():
                     err = resp.read_stderr()
-                    yield {"stderr", err}
+                    yield {"stderr": err}
             resp.close()
             exit_code = 0
 
