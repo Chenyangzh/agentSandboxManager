@@ -16,7 +16,7 @@ def generate_as_terminal(generator):
 if __name__ == "__main__":
     manager = sandboxManager()
     # 创建沙箱
-    sandbox = manager.create_sandbox(image="harbor.wenge.com/algorithm/python:3.12", name="test-sandbox", command="sleep infinity")
+    sandbox = manager.create_sandbox(image="python:3.12", name="test-sandbox", command="sleep infinity")
     
     # 执行命令(synchronous)，短时长命令
     output = sandbox.exec_command("echo hello world")
